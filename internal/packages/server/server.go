@@ -49,8 +49,7 @@ func (s server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 				return
 			}
 
-			log.Println(fmt.Sprintf("propagating request to %s %s", current.Response.Method, current.Response.Path))
-			responder.Respond()
+			log.Println(fmt.Sprintf("request matched %s %s", current.Request.Method, current.Request.Path))
 		}()
 	}
 
