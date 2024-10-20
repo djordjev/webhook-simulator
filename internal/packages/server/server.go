@@ -12,9 +12,10 @@ import (
 )
 
 type server struct {
-	config       config.Config
-	mapper       mapping.Mapper
-	matchBuilder RespondBuilder
+	config          config.Config
+	mapper          mapping.Mapper
+	matchBuilder    MatchBuilder
+	responseBuilder ResponseBuilder
 }
 
 func (s server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -37,19 +38,23 @@ func (s server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		body := make(map[string]any)
 		maps.Copy(body, payload)
 
-		responder := s.matchBuilder(request, &current, body)
+		matcher := s.matchBuilder(request, &current, body)
 
 		wg.Add(1)
 
 		go func() {
 			defer wg.Done()
-			responder.Match()
+			matcher.Match()
 
-			if !responder.IsMatch() {
+			if !matcher.IsMatch() {
 				return
 			}
 
 			log.Println(fmt.Sprintf("request matched %s %s", current.Request.Method, current.Request.Path))
+
+			responder := s.responseBuilder(request, &current, body, writer)
+			responder.Respond()
+
 		}()
 	}
 
@@ -58,8 +63,18 @@ func (s server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	writer.WriteHeader(200)
 }
 
-func NewServer(cfg config.Config, mapper mapping.Mapper, matchBuilder RespondBuilder) http.Handler {
-	srv := server{config: cfg, mapper: mapper, matchBuilder: matchBuilder}
+func NewServer(
+	cfg config.Config,
+	mapper mapping.Mapper,
+	matchBuilder MatchBuilder,
+	responseBuilder ResponseBuilder,
+) http.Handler {
+	srv := server{
+		config:          cfg,
+		mapper:          mapper,
+		matchBuilder:    matchBuilder,
+		responseBuilder: responseBuilder,
+	}
 
 	return srv
 }

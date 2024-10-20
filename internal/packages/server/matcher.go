@@ -107,8 +107,8 @@ func (m *RequestMatcher) IsMatch() bool {
 	return m.isMatch
 }
 
-var Builder RespondBuilder = func(request *http.Request, flow *mapping.Flow, body map[string]any) Matcher {
+var RequestMatchBuilder MatchBuilder = func(request *http.Request, flow *mapping.Flow, body map[string]any) Matcher {
 	return &RequestMatcher{request: request, flow: flow, body: body}
 }
 
-type RespondBuilder func(request *http.Request, flow *mapping.Flow, body map[string]any) Matcher
+type MatchBuilder func(request *http.Request, flow *mapping.Flow, body map[string]any) Matcher

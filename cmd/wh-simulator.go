@@ -6,6 +6,7 @@ import (
 	"github.com/djordjev/webhook-simulator/internal/packages/config"
 	"github.com/djordjev/webhook-simulator/internal/packages/mapping"
 	"github.com/djordjev/webhook-simulator/internal/packages/server"
+	"github.com/djordjev/webhook-simulator/internal/packages/updating"
 	"log"
 	"net"
 	"net/http"
@@ -14,11 +15,20 @@ import (
 
 func main() {
 	cfg := config.ParseConfig()
-	mapper := mapping.NewMapping(cfg, os.DirFS(cfg.Mapping))
+	fs := os.DirFS(cfg.Mapping)
 
-	srv := server.NewServer(cfg, mapper, server.Builder)
+	mapper := mapping.NewMapping(cfg, fs)
+
+	srv := server.NewServer(
+		cfg, mapper,
+		server.RequestMatchBuilder,
+		server.RequestResponseBuilder,
+	)
 
 	err := mapper.Refresh()
+
+	listener := updating.NewUpdater(mapper, cfg)
+	listener.Listen()
 
 	if err != nil {
 		log.Fatalf("unable to read files from mapping directory")
