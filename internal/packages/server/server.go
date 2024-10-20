@@ -21,6 +21,11 @@ type server struct {
 }
 
 func (s server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	if request.Method == "GET" && request.URL.Path == "/ping" {
+		_, _ = writer.Write([]byte("PONG"))
+		return
+	}
+
 	payload := make(map[string]any)
 
 	err := json.NewDecoder(request.Body).Decode(&payload)

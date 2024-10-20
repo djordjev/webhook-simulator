@@ -47,8 +47,6 @@ func (f FSNotifyUpdater) Listen() {
 					isRename := event.Has(fsnotify.Rename)
 					isDelete := event.Has(fsnotify.Remove)
 
-					log.Println("isWrite", isWrite, "isCreate", isCreate, "isRename", isRename, "isDelete", isDelete)
-
 					listeningType := isWrite || isCreate || isRename || isDelete
 
 					if isMappingFile && listeningType {

@@ -18,9 +18,6 @@ import (
 )
 
 func main() {
-	//terminateChannel := make(chan os.Signal, 1)
-	//signal.Notify(terminateChannel, syscall.SIGTERM)
-
 	mainCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM)
 	defer stop()
 

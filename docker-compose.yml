@@ -1,0 +1,10 @@
+services:
+  simulator:
+    build:
+      context: .
+    ports:
+      - "4433:4433"
+    environment:
+      PORT: "4433"
+    volumes:
+      - ./mapping:/mapping
