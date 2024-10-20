@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"maps"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -23,20 +25,55 @@ type RequestResponder struct {
 	flow    *mapping.Flow
 	body    map[string]any
 	rw      http.ResponseWriter
+	mainCtx context.Context
 }
 
 func (r RequestResponder) Respond() {
 	reqDelay := time.Duration(r.flow.Response.Delay)
-	time.AfterFunc(reqDelay, func() {
-		r.respondHttp()
-	})
+	webhookDelay := time.Duration(r.flow.WebHook.Delay)
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		select {
+		case <-time.After(reqDelay * time.Millisecond):
+			{
+				r.respondHttp()
+			}
+
+		case <-r.mainCtx.Done():
+			{
+				log.Println("canceling timeout for response")
+				return
+			}
+		}
+	}()
 
 	if r.flow.WebHook != nil {
-		delay := time.Duration(r.flow.WebHook.Delay)
-		time.AfterFunc(delay, func() {
-			r.triggerWebHook()
-		})
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			select {
+			case <-time.After(webhookDelay * time.Millisecond):
+				{
+					r.triggerWebHook()
+				}
+
+			case <-r.mainCtx.Done():
+				{
+					log.Println("canceling timeout for webhook")
+					return
+				}
+			}
+		}()
 	}
+
+	wg.Wait()
+
 }
 
 func (r RequestResponder) respondHttp() {
@@ -247,13 +284,15 @@ var RequestResponseBuilder ResponseBuilder = func(
 	flow *mapping.Flow,
 	body map[string]any,
 	rw http.ResponseWriter,
+	mainCtx context.Context,
 ) Responder {
 	return RequestResponder{
 		request: request,
 		flow:    flow,
 		body:    body,
 		rw:      rw,
+		mainCtx: mainCtx,
 	}
 }
 
-type ResponseBuilder func(request *http.Request, flow *mapping.Flow, body map[string]any, rw http.ResponseWriter) Responder
+type ResponseBuilder func(request *http.Request, flow *mapping.Flow, body map[string]any, rw http.ResponseWriter, mainCtx context.Context) Responder

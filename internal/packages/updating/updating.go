@@ -1,6 +1,7 @@
 package updating
 
 import (
+	"context"
 	"github.com/djordjev/webhook-simulator/internal/packages/config"
 	"github.com/djordjev/webhook-simulator/internal/packages/mapping"
 	"github.com/fsnotify/fsnotify"
@@ -15,6 +16,7 @@ type Updater interface {
 type FSNotifyUpdater struct {
 	mapper mapping.Mapper
 	config config.Config
+	ctx    context.Context
 }
 
 func (f FSNotifyUpdater) Listen() {
@@ -27,6 +29,11 @@ func (f FSNotifyUpdater) Listen() {
 	go func() {
 		for {
 			select {
+			case <-f.ctx.Done():
+				{
+					log.Println("shutdown signal received -> stop listening folder changes")
+					return
+				}
 			case event, ok := <-watcher.Events:
 				{
 					if !ok {
@@ -69,9 +76,10 @@ func (f FSNotifyUpdater) Listen() {
 
 }
 
-func NewUpdater(mapper mapping.Mapper, cfg config.Config) Updater {
+func NewUpdater(mapper mapping.Mapper, cfg config.Config, ctx context.Context) Updater {
 	return FSNotifyUpdater{
 		mapper: mapper,
 		config: cfg,
+		ctx:    ctx,
 	}
 }

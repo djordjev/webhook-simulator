@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/djordjev/webhook-simulator/internal/packages/config"
@@ -16,6 +17,7 @@ type server struct {
 	mapper          mapping.Mapper
 	matchBuilder    MatchBuilder
 	responseBuilder ResponseBuilder
+	appCtx          context.Context
 }
 
 func (s server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -52,7 +54,7 @@ func (s server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 			log.Println(fmt.Sprintf("request matched %s %s", current.Request.Method, current.Request.Path))
 
-			responder := s.responseBuilder(request, &current, body, writer)
+			responder := s.responseBuilder(request, &current, body, writer, s.appCtx)
 			responder.Respond()
 
 		}()
@@ -68,12 +70,14 @@ func NewServer(
 	mapper mapping.Mapper,
 	matchBuilder MatchBuilder,
 	responseBuilder ResponseBuilder,
+	appCtx context.Context,
 ) http.Handler {
 	srv := server{
 		config:          cfg,
 		mapper:          mapper,
 		matchBuilder:    matchBuilder,
 		responseBuilder: responseBuilder,
+		appCtx:          appCtx,
 	}
 
 	return srv
