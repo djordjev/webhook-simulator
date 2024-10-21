@@ -3,8 +3,8 @@ services:
     build:
       context: .
     ports:
-      - "4433:4433"
+      - "4488:4488"
     environment:
-      PORT: "4433"
+      PORT: "4488"
     volumes:
       - ./mapping:/mapping

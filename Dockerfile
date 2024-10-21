@@ -18,8 +18,6 @@ WORKDIR /app
 
 COPY --from=builder /app/_out/wh-simulator ./wh-simulator
 
-
-
 CMD ./wh-simulator
 
 EXPOSE 4488

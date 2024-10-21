@@ -11,6 +11,7 @@ import (
 	"log"
 	"maps"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -30,7 +31,6 @@ type RequestResponder struct {
 
 func (r RequestResponder) Respond() {
 	reqDelay := time.Duration(r.flow.Response.Delay)
-	webhookDelay := time.Duration(r.flow.WebHook.Delay)
 
 	var wg sync.WaitGroup
 
@@ -53,6 +53,8 @@ func (r RequestResponder) Respond() {
 	}()
 
 	if r.flow.WebHook != nil {
+		webhookDelay := time.Duration(r.flow.WebHook.Delay)
+
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -170,15 +172,30 @@ func (r RequestResponder) mergeInto(dst map[string]any, source map[string]any) e
 
 		switch value := v.(type) {
 		case map[string]any:
+		case map[any]any:
 			{
+				valueCasted := make(map[string]any)
+				for kv, vv := range value {
+					valueCasted[kv.(string)] = vv
+				}
+
 				// found and not map - just overwrite
-				casted, ok := innerVal.(map[string]any)
+				if reflect.TypeOf(innerVal).Kind() != reflect.Map {
+					dst[k] = value
+				}
+
+				dstAnyMap, ok := innerVal.(map[any]any)
 				if !ok {
 					dst[k] = value
 				}
 
 				// found and it's map - do recursively
-				err := r.mergeInto(casted, value)
+				dstStrMap := make(map[string]any)
+				for k1, v1 := range dstAnyMap {
+					dstStrMap[k1.(string)] = v1
+				}
+
+				err := r.mergeInto(dstStrMap, valueCasted)
 				if err != nil {
 					return err
 				}
