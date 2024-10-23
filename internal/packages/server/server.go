@@ -59,15 +59,21 @@ func (s server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 			log.Println(fmt.Sprintf("request matched %s %s", current.Request.Method, current.Request.Path))
 
-			responder := s.responseBuilder(request, &current, body, writer, s.appCtx)
+			responder := s.responseBuilder(
+				request,
+				&current,
+				body,
+				writer,
+				s.appCtx,
+				http.DefaultClient,
+			)
+
 			responder.Respond()
 
 		}()
 	}
 
 	wg.Wait()
-
-	writer.WriteHeader(200)
 }
 
 func NewServer(

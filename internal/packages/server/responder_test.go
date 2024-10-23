@@ -5,9 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/djordjev/webhook-simulator/internal/packages/mapping"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 )
 
@@ -41,6 +44,31 @@ var payloadRes = `
 	}
 `
 
+var payloadNotIncludedBody = `
+	{
+		"user": {
+			"name": {
+				"middle": "unknown"
+			},
+			"age": 35
+		},
+		"hello": {
+			"nested": "world",
+			"againFirstName": "Jon"
+		}
+	}
+`
+
+type mockHttpClient struct {
+	mock.Mock
+}
+
+func (m *mockHttpClient) Do(req *http.Request) (*http.Response, error) {
+	args := m.Called(req)
+
+	return args.Get(0).(*http.Response), args.Error(1)
+}
+
 func TestResponder(t *testing.T) {
 	request, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadReq))
 	request.Header.Set("Content-Type", "application/json")
@@ -62,6 +90,45 @@ func TestResponder(t *testing.T) {
 		},
 	}
 
+	var flowPostNoWebhookNoInclude = mapping.Flow{
+		Response: &mapping.ResponseDefinition{
+			Code:           http.StatusOK,
+			IncludeRequest: false,
+			Body:           templateBody,
+			Headers:        map[string]string{"Content-Type": "application/json"},
+		},
+	}
+
+	var flowPostWithWebhook = mapping.Flow{
+		Response: &mapping.ResponseDefinition{
+			Code:           http.StatusOK,
+			IncludeRequest: false,
+			Body:           map[string]any{"ok": "ok"},
+			Headers:        map[string]string{"Content-Type": "application/json"},
+		},
+		WebHook: &mapping.WebHookDefinition{
+			Method:         http.MethodPut,
+			Path:           "/randomPutMethod/put",
+			IncludeRequest: true,
+			Headers:        map[string]string{"x-api-key": "abc"},
+			Body:           templateBody,
+		},
+	}
+
+	var flowPostWithWebhookNoInclude = mapping.Flow{
+		Response: &mapping.ResponseDefinition{
+			Code:    http.StatusOK,
+			Body:    map[string]any{"ok": "ok"},
+			Headers: map[string]string{"Content-Type": "application/json"},
+		},
+		WebHook: &mapping.WebHookDefinition{
+			Method:  http.MethodPut,
+			Path:    "/randomPutMethod/put",
+			Headers: map[string]string{"x-api-key": "abc"},
+			Body:    templateBody,
+		},
+	}
+
 	testCases := []struct {
 		name                 string
 		request              *http.Request
@@ -70,6 +137,8 @@ func TestResponder(t *testing.T) {
 		body                 map[string]any
 		expectedStatusCode   int
 		expectedResponseBody string
+		shouldTriggerWebHook bool
+		webhookRequestBody   string
 	}{
 		{
 			name:                 "responds to request but does not trigger webhook - with includeRequest",
@@ -80,6 +149,37 @@ func TestResponder(t *testing.T) {
 			expectedStatusCode:   http.StatusOK,
 			expectedResponseBody: payloadRes,
 		},
+		{
+			name:                 "responds to request but does not trigger webhook - no includeRequest",
+			request:              request,
+			response:             httptest.NewRecorder(),
+			flow:                 &flowPostNoWebhookNoInclude,
+			body:                 body,
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: payloadNotIncludedBody,
+		},
+		{
+			name:                 "responds to request and triggers a webhook - with includeRequest",
+			request:              request,
+			response:             httptest.NewRecorder(),
+			flow:                 &flowPostWithWebhook,
+			body:                 body,
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: `{"ok": "ok"}`,
+			shouldTriggerWebHook: true,
+			webhookRequestBody:   payloadRes,
+		},
+		{
+			name:                 "responds to request and triggers a webhook - no includeRequest",
+			request:              request,
+			response:             httptest.NewRecorder(),
+			flow:                 &flowPostWithWebhookNoInclude,
+			body:                 body,
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: `{"ok": "ok"}`,
+			shouldTriggerWebHook: true,
+			webhookRequestBody:   payloadNotIncludedBody,
+		},
 	}
 
 	for _, v := range testCases {
@@ -87,18 +187,35 @@ func TestResponder(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
+			mocked := mockHttpClient{}
 			responder := RequestResponder{
-				request: v.request,
-				flow:    v.flow,
-				body:    v.body,
-				rw:      v.response,
-				mainCtx: ctx,
+				request:    v.request,
+				flow:       v.flow,
+				body:       v.body,
+				rw:         v.response,
+				mainCtx:    ctx,
+				httpClient: &mocked,
+			}
+
+			if v.shouldTriggerWebHook {
+				response := http.Response{Body: io.NopCloser(bytes.NewBufferString("OK"))}
+				mocked.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+					pl := make(map[string]any)
+					expected := make(map[string]any)
+
+					_ = json.NewDecoder(req.Body).Decode(&pl)
+
+					_ = json.Unmarshal([]byte(v.webhookRequestBody), &expected)
+
+					return reflect.DeepEqual(expected, pl)
+				})).Return(&response, nil)
 			}
 
 			responder.Respond()
 
 			require.Equal(t, v.response.Code, v.expectedStatusCode)
-			require.JSONEq(t, payloadRes, v.response.Body.String())
+			require.JSONEq(t, v.expectedResponseBody, v.response.Body.String())
+
 		})
 	}
 

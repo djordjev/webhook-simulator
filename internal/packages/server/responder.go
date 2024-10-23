@@ -17,16 +17,21 @@ import (
 	"time"
 )
 
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type Responder interface {
 	Respond()
 }
 
 type RequestResponder struct {
-	request *http.Request
-	flow    *mapping.Flow
-	body    map[string]any
-	rw      http.ResponseWriter
-	mainCtx context.Context
+	request    *http.Request
+	flow       *mapping.Flow
+	body       map[string]any
+	rw         http.ResponseWriter
+	mainCtx    context.Context
+	httpClient HTTPClient
 }
 
 func (r RequestResponder) Respond() {
@@ -116,7 +121,7 @@ func (r RequestResponder) triggerWebHook() {
 		}
 	}
 
-	log.Println("sending request" + string(payload))
+	log.Println("sending webhook request" + string(payload))
 
 	body := bytes.NewReader(payload)
 
@@ -125,7 +130,7 @@ func (r RequestResponder) triggerWebHook() {
 		log.Println("unable to create request for webhook")
 	}
 
-	res, err := http.DefaultClient.Do(req)
+	res, err := r.httpClient.Do(req)
 	if err != nil || res == nil {
 		log.Println("error while receiving webhook response")
 		return
@@ -161,49 +166,71 @@ func (r RequestResponder) constructPayload(includeRequest bool, data map[string]
 	return marshalled
 }
 
+func (r RequestResponder) mustMapStringAny(unknown any) map[string]any {
+	result := make(map[string]any)
+
+	if mapStrings, ok := unknown.(map[string]any); ok {
+		return mapStrings
+	}
+
+	if anyString, ok := unknown.(map[any]any); ok {
+		for k, v := range anyString {
+			if str, strOK := k.(string); strOK {
+				result[str] = v
+			}
+		}
+	}
+
+	return result
+}
+
 func (r RequestResponder) mergeInto(dst map[string]any, source map[string]any) error {
 	for k, v := range source {
-		// If not found just add the one from source
-		innerVal, found := dst[k]
-		if !found {
-			dst[k] = v
-			innerVal = v
-		}
-
-		switch value := v.(type) {
-		case map[string]any:
-		case map[any]any:
+		switch reflect.TypeOf(v).Kind() {
+		case reflect.Map:
 			{
-				valueCasted := make(map[string]any)
-				for kv, vv := range value {
-					valueCasted[kv.(string)] = vv
-				}
+				casted := r.mustMapStringAny(v)
 
-				// found and not map - just overwrite
-				if reflect.TypeOf(innerVal).Kind() != reflect.Map {
-					dst[k] = value
-				}
+				valueDest, found := dst[k]
 
-				dstAnyMap, ok := innerVal.(map[any]any)
+				if !found || reflect.ValueOf(valueDest).Kind() != reflect.Map {
+					empty := map[string]any{}
+					dst[k] = empty
+
+					err := r.mergeInto(empty, casted)
+					if err != nil {
+						return err
+					}
+
+				} else {
+					destMap := r.mustMapStringAny(valueDest)
+
+					err := r.mergeInto(destMap, casted)
+					if err != nil {
+						return err
+					}
+				}
+			}
+
+		case reflect.Slice:
+			{
+				casted, ok := v.([]any)
 				if !ok {
-					dst[k] = value
+					break
 				}
 
-				// found and it's map - do recursively
-				dstStrMap := make(map[string]any)
-				for k1, v1 := range dstAnyMap {
-					dstStrMap[k1.(string)] = v1
-				}
+				valueDest, found := dst[k]
 
-				err := r.mergeInto(dstStrMap, valueCasted)
-				if err != nil {
-					return err
+				if !found || reflect.ValueOf(valueDest).Kind() != reflect.Slice {
+					empty := make([]any, len(casted))
+					dst[k] = empty
+				} else {
+					log.Println("what to do with slices")
 				}
 			}
 
 		default:
 			{
-
 				if strVal, ok := v.(string); ok {
 					replacedValue, err := r.replaceValue(strVal)
 
@@ -218,6 +245,7 @@ func (r RequestResponder) mergeInto(dst map[string]any, source map[string]any) e
 			}
 
 		}
+
 	}
 
 	return nil
@@ -302,14 +330,23 @@ var RequestResponseBuilder ResponseBuilder = func(
 	body map[string]any,
 	rw http.ResponseWriter,
 	mainCtx context.Context,
+	httpClient HTTPClient,
 ) Responder {
 	return RequestResponder{
-		request: request,
-		flow:    flow,
-		body:    body,
-		rw:      rw,
-		mainCtx: mainCtx,
+		request:    request,
+		flow:       flow,
+		body:       body,
+		rw:         rw,
+		mainCtx:    mainCtx,
+		httpClient: httpClient,
 	}
 }
 
-type ResponseBuilder func(request *http.Request, flow *mapping.Flow, body map[string]any, rw http.ResponseWriter, mainCtx context.Context) Responder
+type ResponseBuilder func(
+	request *http.Request,
+	flow *mapping.Flow,
+	body map[string]any,
+	rw http.ResponseWriter,
+	mainCtx context.Context,
+	client HTTPClient,
+) Responder
