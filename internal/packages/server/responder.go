@@ -139,11 +139,11 @@ func (r RequestResponder) triggerWebHook() {
 
 	resBody, err := io.ReadAll(res.Body)
 	if err != nil {
-		log.Println("unable to read webhook response body")
+		log.Println("unable to read webhook response body", res.StatusCode)
 		return
 	}
 
-	log.Println("received response from webhook" + string(resBody))
+	log.Println("received response from webhook", "status code", res.StatusCode, string(resBody))
 }
 
 func (r RequestResponder) constructPayload(includeRequest bool, data map[string]any) []byte {
@@ -220,14 +220,16 @@ func (r RequestResponder) mergeInto(dst map[string]any, source map[string]any) e
 					break
 				}
 
-				valueDest, found := dst[k]
+				//valueDest, found := dst[k]
+				//
+				//if !found || reflect.ValueOf(valueDest).Kind() != reflect.Slice {
+				//	empty := make([]any, len(casted))
+				//	dst[k] = empty
+				//} else {
+				//	log.Println("what to do with slices")
+				//}
 
-				if !found || reflect.ValueOf(valueDest).Kind() != reflect.Slice {
-					empty := make([]any, len(casted))
-					dst[k] = empty
-				} else {
-					log.Println("what to do with slices")
-				}
+				dst[k] = casted
 			}
 
 		default:
