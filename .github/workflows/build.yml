@@ -1,38 +1,15 @@
 name: Build
 on:
   workflow_run:
-    workflows: ["Run tests"]
+    workflows: ["Tests"]
     types:
       - completed
     branches:
       - main
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Go 1.23
-        uses: actions/setup-go@v5
-        with:
-          go-version: '^1.23.x'
-
-      - name: Using Go version
-        run: go version
-
-      - name: Install deps
-        run: go mod tidy
-
-      - name: Run tests
-        run: go test ./...
-
   build:
     runs-on: ubuntu-latest
-
-    needs:
-      - test
 
     steps:
       - uses: actions/checkout@v4
