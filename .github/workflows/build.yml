@@ -18,7 +18,7 @@ jobs:
         run: go version
 
       - name: Install deps
-        run: go mod tidy
+        run: go mod download
 
       - name: Run tests
         run: go test ./...
