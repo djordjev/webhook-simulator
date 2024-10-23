@@ -25,5 +25,6 @@ go.work.sum
 .env
 
 _out
-mapping
+mapping/
+!internal/packages/mapping
 .idea
