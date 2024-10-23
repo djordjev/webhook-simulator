@@ -126,13 +126,14 @@ func (r RequestResponder) triggerWebHook() {
 	body := bytes.NewReader(payload)
 
 	req, err := http.NewRequest(r.flow.WebHook.Method, r.flow.WebHook.Path, body)
+
 	if err != nil {
 		log.Println("unable to create request for webhook")
 	}
 
 	res, err := r.httpClient.Do(req)
 	if err != nil || res == nil {
-		log.Println("error while receiving webhook response")
+		log.Println("error while receiving webhook response", err)
 		return
 	}
 
