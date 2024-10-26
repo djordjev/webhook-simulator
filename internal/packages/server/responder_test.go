@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-var payloadReq = `
+var payloadResponderReq = `
 	{
 		"user": {
 			"name": {
@@ -27,7 +27,7 @@ var payloadReq = `
 	}
 `
 
-var payloadReqWithArray = `
+var payloadResponderReqWithArray = `
 	{	
 		"user": {
 			"name": {
@@ -39,7 +39,7 @@ var payloadReqWithArray = `
 	}
 `
 
-var payloadRes = `
+var payloadResponderRes = `
 	{
 		"user": {
 			"name": {
@@ -57,7 +57,7 @@ var payloadRes = `
 	}
 `
 
-var payloadResWithArray = `
+var payloadResponderResWithArray = `
 	{
 		"user": {
 			"name": {
@@ -87,7 +87,7 @@ var payloadResWithArray = `
 	}
 `
 
-var payloadNotIncludedBody = `
+var payloadResponderNotIncludedBody = `
 	{
 		"user": {
 			"name": {
@@ -113,17 +113,17 @@ func (m *mockHttpClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 func TestResponder(t *testing.T) {
-	request, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadReq))
+	request, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadResponderReq))
 	request.Header.Set("Content-Type", "application/json")
 
-	requestWithArray, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadReqWithArray))
+	requestWithArray, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadResponderReqWithArray))
 	request.Header.Set("Content-Type", "application/json")
 
 	var body map[string]any
-	_ = json.Unmarshal([]byte(payloadReq), &body)
+	_ = json.Unmarshal([]byte(payloadResponderReq), &body)
 
 	var bodyWithArray map[string]any
-	_ = json.Unmarshal([]byte(payloadReqWithArray), &bodyWithArray)
+	_ = json.Unmarshal([]byte(payloadResponderReqWithArray), &bodyWithArray)
 
 	templateBody := map[string]any{
 		"hello": map[any]any{"nested": "world", "againFirstName": "${{body.user.name.firstName}}"},
@@ -219,7 +219,7 @@ func TestResponder(t *testing.T) {
 			flow:                 &flowPostNoWebhook,
 			body:                 body,
 			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: payloadRes,
+			expectedResponseBody: payloadResponderRes,
 		},
 		{
 			name:                 "responds to request with slice but does not trigger webhook - with includeRequest",
@@ -228,7 +228,7 @@ func TestResponder(t *testing.T) {
 			flow:                 &flowPostWithArrayNoWebhook,
 			body:                 bodyWithArray,
 			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: payloadResWithArray,
+			expectedResponseBody: payloadResponderResWithArray,
 		},
 		{
 			name:                 "responds to request but does not trigger webhook - no includeRequest",
@@ -237,7 +237,7 @@ func TestResponder(t *testing.T) {
 			flow:                 &flowPostNoWebhookNoInclude,
 			body:                 body,
 			expectedStatusCode:   http.StatusOK,
-			expectedResponseBody: payloadNotIncludedBody,
+			expectedResponseBody: payloadResponderNotIncludedBody,
 		},
 		{
 			name:                 "responds to request and triggers a webhook - with includeRequest",
@@ -248,7 +248,7 @@ func TestResponder(t *testing.T) {
 			expectedStatusCode:   http.StatusOK,
 			expectedResponseBody: `{"ok": "ok"}`,
 			shouldTriggerWebHook: true,
-			webhookRequestBody:   payloadRes,
+			webhookRequestBody:   payloadResponderRes,
 		},
 		{
 			name:                 "responds to request and triggers a webhook - no includeRequest",
@@ -259,7 +259,7 @@ func TestResponder(t *testing.T) {
 			expectedStatusCode:   http.StatusOK,
 			expectedResponseBody: `{"ok": "ok"}`,
 			shouldTriggerWebHook: true,
-			webhookRequestBody:   payloadNotIncludedBody,
+			webhookRequestBody:   payloadResponderNotIncludedBody,
 		},
 	}
 

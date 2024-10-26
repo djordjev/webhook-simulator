@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-var payload = `
+var payloadMatcher = `
 	{
 		"user": {
 			"name": {
@@ -21,7 +21,7 @@ var payload = `
 	}
 `
 
-var payloadWithArray = `
+var payloadMatcherWithArray = `
 	{
 		"user": {
 			"name": {
@@ -34,7 +34,7 @@ var payloadWithArray = `
 	}
 `
 
-var payloadWithWrongArray = `
+var payloadMatcherWithWrongArray = `
 	{
 		"user": {
 			"name": {
@@ -47,7 +47,7 @@ var payloadWithWrongArray = `
 	}
 `
 
-var payloadNotMatching1 = `
+var payloadMatcherNotMatching1 = `
 	{
 		"user": {
 			"name": {
@@ -62,37 +62,37 @@ var payloadNotMatching1 = `
 var payloadNoFields = "{}"
 
 func TestMatch(t *testing.T) {
-	request, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payload))
+	request, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadMatcher))
 	request.Header.Set("Content-Type", "application/json")
 
-	requestNoHeader, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payload))
+	requestNoHeader, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadMatcher))
 
-	requestNotMatching1, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadNotMatching1))
+	requestNotMatching1, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadMatcherNotMatching1))
 	requestNotMatching1.Header.Set("Content-Type", "application/json")
 
 	requestNoFields, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadNoFields))
 	requestNoFields.Header.Set("Content-Type", "application/json")
 
-	requestWithArray, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadWithArray))
+	requestWithArray, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadMatcherWithArray))
 	requestWithArray.Header.Set("Content-Type", "application/json")
 
-	requestWithWrongArray, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadWithWrongArray))
+	requestWithWrongArray, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadMatcherWithWrongArray))
 	requestWithWrongArray.Header.Set("Content-Type", "application/json")
 
 	var body map[string]any
-	_ = json.Unmarshal([]byte(payload), &body)
+	_ = json.Unmarshal([]byte(payloadMatcher), &body)
 
 	var bodyNotMatching map[string]any
-	_ = json.Unmarshal([]byte(payloadNotMatching1), &bodyNotMatching)
+	_ = json.Unmarshal([]byte(payloadMatcherNotMatching1), &bodyNotMatching)
 
 	var bodyNoFields map[string]any
 	_ = json.Unmarshal([]byte(payloadNoFields), &bodyNoFields)
 
 	var bodyWithArray map[string]any
-	_ = json.Unmarshal([]byte(payloadWithArray), &bodyWithArray)
+	_ = json.Unmarshal([]byte(payloadMatcherWithArray), &bodyWithArray)
 
 	var bodyWithWrongArray map[string]any
-	_ = json.Unmarshal([]byte(payloadWithWrongArray), &bodyWithWrongArray)
+	_ = json.Unmarshal([]byte(payloadMatcherWithWrongArray), &bodyWithWrongArray)
 
 	var flowPost = mapping.Flow{
 		Request: &mapping.RequestDefinition{
