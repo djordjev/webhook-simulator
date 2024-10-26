@@ -136,7 +136,8 @@ If some value should be replaced with value from request you can use
 `"some_value": "body.user.firstName"` to get value from request body
 `"some_value": "header.api-key"` to get value from request headers
 
-_Note: currently templating does not work with arrays_
+_Note: it's possible to match presence of element in array but currently it's not possible to
+match array element by index_
 
 ## Docker
 
