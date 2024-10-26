@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -26,6 +27,18 @@ var payloadReq = `
 	}
 `
 
+var payloadReqWithArray = `
+	{	
+		"user": {
+			"name": {
+				"firstName": "Jon",
+				"lastName": "Doe"
+			}
+		},
+		"info": [{ "random": "thing" }]
+	}
+`
+
 var payloadRes = `
 	{
 		"user": {
@@ -41,6 +54,36 @@ var payloadRes = `
 			"nested": "world",
 			"againFirstName": "Jon"
 		}
+	}
+`
+
+var payloadResWithArray = `
+	{
+		"user": {
+			"name": {
+				"firstName": "Jon",
+				"lastName": "Doe",
+				"middle": "unknown"
+			},
+			"age": 35
+		},
+		"hello": {
+			"nested": "world",
+			"againFirstName": "Jon"
+		},
+		"info": [
+			{ 
+				"random": "thing",
+				"user": {
+					"firstName": "Jon",
+					"lastName": "Doe"
+				}
+			},
+			"Jon Hardcoded",
+			"Doe",
+			42,
+			true
+		]
 	}
 `
 
@@ -73,12 +116,32 @@ func TestResponder(t *testing.T) {
 	request, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadReq))
 	request.Header.Set("Content-Type", "application/json")
 
+	requestWithArray, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadReqWithArray))
+	request.Header.Set("Content-Type", "application/json")
+
 	var body map[string]any
 	_ = json.Unmarshal([]byte(payloadReq), &body)
+
+	var bodyWithArray map[string]any
+	_ = json.Unmarshal([]byte(payloadReqWithArray), &bodyWithArray)
 
 	templateBody := map[string]any{
 		"hello": map[any]any{"nested": "world", "againFirstName": "${{body.user.name.firstName}}"},
 		"user":  map[any]any{"age": 35, "name": map[any]any{"middle": "unknown"}},
+	}
+
+	templateBodyArray := maps.Clone(templateBody)
+	templateBodyArray["info"] = []any{
+		map[string]any{
+			"user": map[string]any{
+				"firstName": "${{body.user.name.firstName}}",
+				"lastName":  "${{body.user.name.lastName}}",
+			},
+		},
+		"Jon Hardcoded",
+		"${{body.user.name.lastName}}",
+		42,
+		true,
 	}
 
 	var flowPostNoWebhook = mapping.Flow{
@@ -86,6 +149,15 @@ func TestResponder(t *testing.T) {
 			Code:           http.StatusOK,
 			IncludeRequest: true,
 			Body:           templateBody,
+			Headers:        map[string]string{"Content-Type": "application/json"},
+		},
+	}
+
+	var flowPostWithArrayNoWebhook = mapping.Flow{
+		Response: &mapping.ResponseDefinition{
+			Code:           http.StatusOK,
+			IncludeRequest: true,
+			Body:           templateBodyArray,
 			Headers:        map[string]string{"Content-Type": "application/json"},
 		},
 	}
@@ -148,6 +220,15 @@ func TestResponder(t *testing.T) {
 			body:                 body,
 			expectedStatusCode:   http.StatusOK,
 			expectedResponseBody: payloadRes,
+		},
+		{
+			name:                 "responds to request with slice but does not trigger webhook - with includeRequest",
+			request:              requestWithArray,
+			response:             httptest.NewRecorder(),
+			flow:                 &flowPostWithArrayNoWebhook,
+			body:                 bodyWithArray,
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: payloadResWithArray,
 		},
 		{
 			name:                 "responds to request but does not trigger webhook - no includeRequest",

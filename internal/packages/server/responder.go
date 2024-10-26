@@ -220,16 +220,15 @@ func (r RequestResponder) mergeInto(dst map[string]any, source map[string]any) e
 					break
 				}
 
-				//valueDest, found := dst[k]
-				//
-				//if !found || reflect.ValueOf(valueDest).Kind() != reflect.Slice {
-				//	empty := make([]any, len(casted))
-				//	dst[k] = empty
-				//} else {
-				//	log.Println("what to do with slices")
-				//}
+				dstSlice, found := dst[k]
+				dstSliceCasted, isSlice := dstSlice.([]any)
 
-				dst[k] = casted
+				if !found || !isSlice {
+					dst[k] = r.mergeArrays([]any{}, casted)
+				} else {
+					dst[k] = r.mergeArrays(dstSliceCasted, casted)
+				}
+
 			}
 
 		default:
@@ -252,6 +251,64 @@ func (r RequestResponder) mergeInto(dst map[string]any, source map[string]any) e
 	}
 
 	return nil
+}
+
+func (r RequestResponder) mergeArrays(dst []any, src []any) []any {
+	result := make([]any, 0)
+
+	for index, v := range src {
+		var currentDst any = nil
+		if index < len(dst) {
+			currentDst = dst[index]
+		}
+
+		switch reflect.TypeOf(v).Kind() {
+		case reflect.Map:
+			{
+				dstMap, ok := currentDst.(map[string]any)
+				if !ok {
+					dstMap = map[string]any{}
+				}
+
+				if srcMap, ok := v.(map[string]any); ok {
+					_ = r.mergeInto(dstMap, srcMap)
+				}
+
+				result = append(result, dstMap)
+			}
+
+		case reflect.Slice:
+			{
+				dstSlice, ok := currentDst.([]any)
+				if !ok {
+					dstSlice = make([]any, 0)
+				}
+
+				var res any = make([]any, 0)
+				if srcSlice, ok := v.([]any); ok {
+					res = r.mergeArrays(dstSlice, srcSlice)
+				}
+
+				result = append(result, res)
+			}
+
+		default:
+			{
+				if strVal, ok := v.(string); ok {
+					replacedValue, err := r.replaceValue(strVal)
+
+					if err == nil {
+						result = append(result, replacedValue)
+					}
+				} else {
+					result = append(result, v)
+				}
+			}
+
+		}
+	}
+
+	return result
 }
 
 func (r RequestResponder) replaceValue(valuePlaceholder string) (any, error) {
