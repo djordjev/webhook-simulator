@@ -90,6 +90,48 @@ func isMatching(needToMatch map[string]any, object map[string]any) bool {
 				}
 			}
 
+		case []any:
+			{
+				inRequest, found := object[k]
+				if !found {
+					return false
+				}
+
+				casted, ok := inRequest.([]any)
+				if !ok {
+					return false
+				}
+
+				for _, elem := range t {
+					elemFound := false
+
+					for _, elemInRequest := range casted {
+						mapElem, isMapElem := elem.(map[string]any)
+						if isMapElem {
+							castedInRequest, isMap := elemInRequest.(map[string]any)
+							if !isMap {
+								break
+							}
+
+							if isMatching(mapElem, castedInRequest) {
+								elemFound = true
+								break
+							}
+						} else {
+							if elemInRequest == elem {
+								elemFound = true
+								break
+							}
+						}
+					}
+
+					if !elemFound {
+						return false
+					}
+
+				}
+			}
+
 		default:
 			{
 				inRequest, found := object[k]

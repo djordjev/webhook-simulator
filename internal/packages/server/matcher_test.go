@@ -21,6 +21,32 @@ var payload = `
 	}
 `
 
+var payloadWithArray = `
+	{
+		"user": {
+			"name": {
+				"firstName": "Jon",
+				"lastName": "Doe"
+			},
+			"info": ["Jon Doe"],
+			"order": 1
+		}
+	}
+`
+
+var payloadWithWrongArray = `
+	{
+		"user": {
+			"name": {
+				"firstName": "Jon",
+				"lastName": "Doe"
+			},
+			"info": [{"name": "Not Jon Doe"}],
+			"order": 1
+		}
+	}
+`
+
 var payloadNotMatching1 = `
 	{
 		"user": {
@@ -47,6 +73,12 @@ func TestMatch(t *testing.T) {
 	requestNoFields, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadNoFields))
 	requestNoFields.Header.Set("Content-Type", "application/json")
 
+	requestWithArray, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadWithArray))
+	requestWithArray.Header.Set("Content-Type", "application/json")
+
+	requestWithWrongArray, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadWithWrongArray))
+	requestWithWrongArray.Header.Set("Content-Type", "application/json")
+
 	var body map[string]any
 	_ = json.Unmarshal([]byte(payload), &body)
 
@@ -55,6 +87,12 @@ func TestMatch(t *testing.T) {
 
 	var bodyNoFields map[string]any
 	_ = json.Unmarshal([]byte(payloadNoFields), &bodyNoFields)
+
+	var bodyWithArray map[string]any
+	_ = json.Unmarshal([]byte(payloadWithArray), &bodyWithArray)
+
+	var bodyWithWrongArray map[string]any
+	_ = json.Unmarshal([]byte(payloadWithWrongArray), &bodyWithWrongArray)
 
 	var flowPost = mapping.Flow{
 		Request: &mapping.RequestDefinition{
@@ -70,6 +108,15 @@ func TestMatch(t *testing.T) {
 			Method:  http.MethodGet,
 			Path:    "/randomPath1",
 			Body:    body,
+			Headers: map[string]string{"Content-Type": "application/json"},
+		},
+	}
+
+	var flowPostWithArray = mapping.Flow{
+		Request: &mapping.RequestDefinition{
+			Method:  http.MethodPost,
+			Path:    "/randomPath1",
+			Body:    bodyWithArray,
 			Headers: map[string]string{"Content-Type": "application/json"},
 		},
 	}
@@ -96,6 +143,20 @@ func TestMatch(t *testing.T) {
 			body:    body,
 			flow:    flowPost,
 			isMatch: true,
+		},
+		{
+			name:    "matches the payload with array",
+			request: requestWithArray,
+			body:    bodyWithArray,
+			flow:    flowPostWithArray,
+			isMatch: true,
+		},
+		{
+			name:    "does not match when array payload mismatch",
+			request: requestWithWrongArray,
+			body:    bodyWithWrongArray,
+			flow:    flowPostWithArray,
+			isMatch: false,
 		},
 		{
 			name:    "does not match the payload if method is not matching",
