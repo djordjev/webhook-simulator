@@ -137,8 +137,15 @@ If some value should be replaced with value from request you can use
 `"some_value": "header.api-key"` to get value from request headers
 
 _Note: it's possible to match presence of element in array but currently it's not possible to
-match array element by index_
+match array element by index_.
 
+### Special variables
+- `${{now}}` - returns current time in RFC3339 format
+- `${{after|before X millisecond|second|minute|hour|day}}` - adds or substracts amount of time to current time ie `${{after 3 seconds}}`
+- `uuid` - returns random uuid
+- `random 0 10` - returns random integer in range
+- `digit 5` - returns 5 digits as string
+- `letter 3` - returns 3 random ASCII letters as stirng
 ## Docker
 
 Server can be run within Docker container. If using docker componse it's recommended to 
