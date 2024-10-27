@@ -269,14 +269,15 @@ func TestResponder(t *testing.T) {
 			defer cancel()
 
 			mocked := mockHttpClient{}
-			responder := RequestResponder{
-				request:    v.request,
-				flow:       v.flow,
-				body:       v.body,
-				rw:         v.response,
-				mainCtx:    ctx,
-				httpClient: &mocked,
-			}
+
+			responder := RequestResponseBuilder(
+				v.request,
+				v.flow,
+				v.body,
+				v.response,
+				ctx,
+				&mocked,
+			)
 
 			if v.shouldTriggerWebHook {
 				response := http.Response{Body: io.NopCloser(bytes.NewBufferString("OK"))}
