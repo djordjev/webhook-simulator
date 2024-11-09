@@ -59,9 +59,7 @@ func (r RequestResponder) Respond() {
 	if r.flow.WebHook != nil {
 		webhookDelay := time.Duration(r.flow.WebHook.Delay)
 
-		wg.Add(1)
 		go func() {
-			defer wg.Done()
 
 			select {
 			case <-time.After(webhookDelay * time.Millisecond):
