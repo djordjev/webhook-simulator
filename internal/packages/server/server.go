@@ -10,6 +10,7 @@ import (
 	"maps"
 	"net/http"
 	"sync"
+	"sync/atomic"
 )
 
 type server struct {
@@ -41,12 +42,13 @@ func (s server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	var wg sync.WaitGroup
+	var counter atomic.Int32
+
 	for _, current := range mappings {
 		body := make(map[string]any)
 		maps.Copy(body, payload)
 
 		matcher := s.matchBuilder(request, &current, body)
-
 		wg.Add(1)
 
 		go func() {
@@ -54,6 +56,11 @@ func (s server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 			matcher.Match()
 
 			if !matcher.IsMatch() {
+				return
+			}
+
+			if res := counter.Swap(1); res > 0 {
+				log.Println("multiple matchers are matching this request. Ignoring...")
 				return
 			}
 
@@ -74,6 +81,10 @@ func (s server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	wg.Wait()
+
+	if counter.Load() == 0 {
+		writer.WriteHeader(http.StatusBadRequest)
+	}
 }
 
 func NewServer(
