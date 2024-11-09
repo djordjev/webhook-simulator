@@ -13,7 +13,7 @@ request to a different endpoint. In order to work it needs:
 
 It will listen for file system changes in specified folder and update mappings and responses
 immediately so it doesn't need a restart. All configurations are stored in JSON files with
-`.whs` extension. All files that have extension different than `.whs` will be ignored.
+`.whs` (or `.json`) extension. All files that have extension different than `.whs` (or `.json`) will be ignored.
 
 ### Example of configuration file
 
