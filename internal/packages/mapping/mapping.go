@@ -6,7 +6,6 @@ import (
 	"github.com/djordjev/webhook-simulator/internal/packages/config"
 	"io/fs"
 	"log"
-	"path/filepath"
 	"sync"
 )
 
@@ -36,7 +35,7 @@ func (m *mapping) Refresh() (err error) {
 			return nil
 		}
 
-		if filepath.Ext(path) != ".whs" {
+		if !HasMappingFileExtension(path) {
 			return nil
 		}
 
