@@ -6,7 +6,6 @@ import (
 	"github.com/djordjev/webhook-simulator/internal/packages/mapping"
 	"github.com/fsnotify/fsnotify"
 	"log"
-	"strings"
 )
 
 type Updater interface {
@@ -40,7 +39,7 @@ func (f FSNotifyUpdater) Listen() {
 						return
 					}
 
-					isMappingFile := hasMappingFileExtension(event.Name)
+					isMappingFile := mapping.HasMappingFileExtension(event.Name)
 
 					isWrite := event.Has(fsnotify.Write)
 					isCreate := event.Has(fsnotify.Create)
@@ -72,10 +71,6 @@ func (f FSNotifyUpdater) Listen() {
 
 	err = watcher.Add(f.config.Mapping)
 
-}
-
-func hasMappingFileExtension(name string) bool {
-	return strings.HasSuffix(name, ".whs") || strings.HasSuffix(name, ".json")
 }
 
 func NewUpdater(mapper mapping.Mapper, cfg config.Config, ctx context.Context) Updater {
