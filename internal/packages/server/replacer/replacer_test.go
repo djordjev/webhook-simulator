@@ -19,11 +19,12 @@ func TestReplace(t *testing.T) {
 	newUUID = func() uuid.UUID { return uuidToReturn }
 
 	testCases := []struct {
-		name    string
-		body    map[string]any
-		headers map[string]string
-		input   string
-		result  any
+		name     string
+		body     map[string]any
+		headers  map[string]string
+		input    string
+		result   any
+		iterator any
 	}{
 		{
 			name:    "no replacement if no variable",
@@ -95,6 +96,22 @@ func TestReplace(t *testing.T) {
 			input:   "${{uuid}}",
 			result:  uuidToReturn.String(),
 		},
+		{
+			name:     "picks up value from iterator - object",
+			body:     map[string]any{},
+			headers:  map[string]string{},
+			iterator: map[string]any{"value": "randomValue"},
+			input:    "${{iterator.value}}",
+			result:   "randomValue",
+		},
+		{
+			name:     "picks up value from iterator - whole iterator",
+			body:     map[string]any{},
+			headers:  map[string]string{},
+			iterator: "whole",
+			input:    "${{iterator.}}",
+			result:   "whole",
+		},
 	}
 
 	for _, test := range testCases {
@@ -106,8 +123,9 @@ func TestReplace(t *testing.T) {
 			}
 
 			replacer := stringReplacer{
-				body:   test.body,
-				header: req.Header,
+				body:     test.body,
+				header:   req.Header,
+				iterator: test.iterator,
 			}
 
 			result, _ := replacer.Replace(test.input)

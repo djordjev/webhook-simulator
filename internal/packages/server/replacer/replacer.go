@@ -21,11 +21,13 @@ var newUUID = uuid.New
 
 type Replacer interface {
 	Replace(str string) (any, error)
+	Child(iterator any) Replacer
 }
 
 type stringReplacer struct {
-	body   map[string]any
-	header http.Header
+	body     map[string]any
+	header   http.Header
+	iterator any
 }
 
 func (s stringReplacer) Replace(str string) (any, error) {
@@ -55,6 +57,16 @@ func (s stringReplacer) Replace(str string) (any, error) {
 	return res, nil
 }
 
+func (s stringReplacer) Child(iterator any) Replacer {
+	replacer := stringReplacer{
+		body:     s.body,
+		header:   s.header,
+		iterator: iterator,
+	}
+
+	return replacer
+}
+
 func (s stringReplacer) doReplacement(variable string) (any, error) {
 	variable = variable[3 : len(variable)-2]
 	if strings.HasPrefix(variable, "body.") {
@@ -64,6 +76,27 @@ func (s stringReplacer) doReplacement(variable string) (any, error) {
 		}
 
 		return s.getFromBody(value)
+	}
+
+	if strings.HasPrefix(variable, "iterator.") {
+		value, prefixFound := strings.CutPrefix(variable, "iterator.")
+		if !prefixFound {
+			return "", errors.New("unable to cut iterator. from" + variable)
+		}
+
+		if s.iterator == nil {
+			return "", errors.New("no iterator found")
+		}
+
+		return s.getFromIterator(value)
+	}
+
+	if variable == "iterator" {
+		if s.iterator == nil {
+			return "", errors.New("no iterator found")
+		}
+
+		return s.getFromIterator("")
 	}
 
 	if strings.HasPrefix(variable, "header.") {
@@ -213,6 +246,47 @@ func (s stringReplacer) getTimeOffset(value string) string {
 	}
 
 	return now().Add(time.Duration(offset) * measure).UTC().Format(time.RFC3339)
+}
+
+func (s stringReplacer) getFromIterator(value string) (any, error) {
+	if s.iterator == nil {
+		return "", fmt.Errorf("iterator not found")
+	}
+
+	if value == "" {
+		return s.iterator, nil
+	}
+
+	segments := strings.Split(value, ".")
+
+	current, ok := s.iterator.(map[string]any)
+	if !ok {
+		return "", fmt.Errorf("field does not exist on iterator")
+	}
+
+	length := len(segments)
+
+	for k, v := range segments {
+		isLast := k == length-1
+
+		currentVal, found := current[v]
+
+		if !found {
+			return "", fmt.Errorf("unable to find segment %s in path %s", v, value)
+		}
+
+		if isLast {
+			return currentVal, nil
+		} else {
+			if next, ok := currentVal.(map[string]any); ok {
+				current = next
+			} else {
+				return "", errors.New("next value is not a map" + value)
+			}
+		}
+	}
+
+	return "", errors.New("not found for path" + value)
 }
 
 func (s stringReplacer) getFromBody(value string) (any, error) {
