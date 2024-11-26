@@ -39,6 +39,16 @@ var payloadResponderReqWithArray = `
 	}
 `
 
+var payloadResponderReqArrayMapping = `
+	{	
+		"users": [
+			{ "name": "JonA" },
+			{ "name": "JonB" },
+			{ "name": "JonC" }
+		]
+	}
+`
+
 var payloadResponderRes = `
 	{
 		"user": {
@@ -87,6 +97,16 @@ var payloadResponderResWithArray = `
 	}
 `
 
+var payloadResponderResArrayMapping = `
+	{
+		"mappedUsers": [
+			{ "mappedName": "JonA", "additional": 5},
+			{ "mappedName": "JonB", "additional": 5},
+			{ "mappedName": "JonC", "additional": 5}
+		]
+	}
+`
+
 var payloadResponderNotIncludedBody = `
 	{
 		"user": {
@@ -117,13 +137,19 @@ func TestResponder(t *testing.T) {
 	request.Header.Set("Content-Type", "application/json")
 
 	requestWithArray, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadResponderReqWithArray))
-	request.Header.Set("Content-Type", "application/json")
+	requestWithArray.Header.Set("Content-Type", "application/json")
+
+	requestMappedArray, _ := http.NewRequest(http.MethodPost, "/randomPath1", bytes.NewBufferString(payloadResponderReqArrayMapping))
+	requestMappedArray.Header.Set("Content-Type", "application/json")
 
 	var body map[string]any
 	_ = json.Unmarshal([]byte(payloadResponderReq), &body)
 
 	var bodyWithArray map[string]any
 	_ = json.Unmarshal([]byte(payloadResponderReqWithArray), &bodyWithArray)
+
+	var bodyMappedArray map[string]any
+	_ = json.Unmarshal([]byte(payloadResponderReqArrayMapping), &bodyMappedArray)
 
 	templateBody := map[string]any{
 		"hello": map[any]any{"nested": "world", "againFirstName": "${{body.user.name.firstName}}"},
@@ -144,11 +170,32 @@ func TestResponder(t *testing.T) {
 		true,
 	}
 
+	templateBodyMappedArray := map[string]any{
+		"mappedUsers": map[any]any{
+			"$each": map[any]any{
+				"$field": "${{body.users}}",
+				"$to": map[any]any{
+					"mappedName": "${{iterator.name}}",
+					"additional": 5,
+				},
+			},
+		},
+	}
+
 	var flowPostNoWebhook = mapping.Flow{
 		Response: &mapping.ResponseDefinition{
 			Code:           http.StatusOK,
 			IncludeRequest: true,
 			Body:           templateBody,
+			Headers:        map[string]string{"Content-Type": "application/json"},
+		},
+	}
+
+	var flowPostMappedArray = mapping.Flow{
+		Response: &mapping.ResponseDefinition{
+			Code:           http.StatusOK,
+			IncludeRequest: false,
+			Body:           templateBodyMappedArray,
 			Headers:        map[string]string{"Content-Type": "application/json"},
 		},
 	}
@@ -260,6 +307,15 @@ func TestResponder(t *testing.T) {
 			expectedResponseBody: `{"ok": "ok"}`,
 			shouldTriggerWebHook: true,
 			webhookRequestBody:   payloadResponderNotIncludedBody,
+		},
+		{
+			name:                 "responds with mapped array",
+			request:              requestMappedArray,
+			response:             httptest.NewRecorder(),
+			flow:                 &flowPostMappedArray,
+			body:                 bodyMappedArray,
+			expectedStatusCode:   http.StatusOK,
+			expectedResponseBody: payloadResponderResArrayMapping,
 		},
 	}
 

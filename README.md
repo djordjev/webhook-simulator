@@ -145,7 +145,53 @@ match array element by index_.
 - `uuid` - returns random uuid
 - `random 0 10` - returns random integer in range
 - `digit 5` - returns 5 digits as string
-- `letter 3` - returns 3 random ASCII letters as stirng
+- `letter 3` - returns 3 random ASCII letters as string
+
+### Array iterator
+It's possible to iterate through array from request payload and construct a new array in the response using values from
+iterator.
+
+Example:
+
+For given payload body:
+```json
+{
+  "elements": [
+    { "value":  "First"},
+    { "value":  "Second"},
+    { "value":  "Third"}
+  ]
+}
+```
+
+And configuration:
+
+```json
+{
+  "array": {
+    "$each": { // $each is special keyword to iterate through array
+      "$field": "${{body.elements}}", // $field selects particular field in body
+      "$to": { // $to is either object or primitive value which will be created for every iterated field
+        "name": "${{iterator.value}}", // to grab value from iterated field use iterator.value (or just "iterator" to use whole object)
+        "anotherField": "Random"
+      }
+    }
+  }
+}
+```
+
+it will produce output:
+
+```json
+{
+  "array": [
+    { "name":  "First", "anotherField":  "Random" },
+    { "name":  "Second", "anotherField":  "Random" },
+    { "name":  "Third", "anotherField":  "Random" }
+  ]
+}
+```
+
 ## Docker
 
 Server can be run within Docker container. If using docker componse it's recommended to 

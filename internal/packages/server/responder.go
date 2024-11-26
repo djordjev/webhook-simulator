@@ -15,6 +15,10 @@ import (
 	"time"
 )
 
+const Each = "$each"
+const Field = "$field"
+const To = "$to"
+
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
@@ -182,6 +186,81 @@ func (r RequestResponder) mustMapStringAny(unknown any) map[string]any {
 	return result
 }
 
+func (r RequestResponder) isArrayMapper(m map[string]any) bool {
+	for k, _ := range m {
+		if k == Each {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r RequestResponder) populateMappedArray(descriptor map[string]any) (result []any) {
+	initialReplacer := r.replacer
+	defer func() {
+		r.replacer = initialReplacer
+	}()
+
+	result = make([]any, 0)
+
+	anyField, ok := descriptor[Field]
+	if !ok {
+		return
+	}
+
+	anyTo, ok := descriptor[To]
+	if !ok {
+		return
+	}
+
+	strField, ok := anyField.(string)
+	if !ok {
+		return
+	}
+
+	field, err := r.replacer.Replace(strField)
+	if err != nil {
+		return
+	}
+
+	arrField, ok := field.([]any)
+	if !ok {
+		return
+	}
+
+	for _, v := range arrField {
+		r.replacer = r.replacer.Child(v)
+
+		if reflect.TypeOf(anyTo).Kind() == reflect.Map {
+			current := make(map[string]any)
+			err = r.mergeInto(current, r.mustMapStringAny(anyTo))
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			result = append(result, current)
+		} else if reflect.TypeOf(anyTo).Kind() == reflect.Slice {
+			log.Println("can't array map to another array")
+			return
+		} else {
+			str, ok := anyTo.(string)
+			if !ok {
+				result = append(result, anyTo)
+			} else {
+				replaced, err := r.replacer.Replace(str)
+				if err != nil {
+					return
+				}
+				result = append(result, replaced)
+			}
+		}
+	}
+
+	return result
+}
+
 func (r RequestResponder) mergeInto(dst map[string]any, source map[string]any) error {
 	for k, v := range source {
 		switch reflect.TypeOf(v).Kind() {
@@ -189,9 +268,16 @@ func (r RequestResponder) mergeInto(dst map[string]any, source map[string]any) e
 			{
 				casted := r.mustMapStringAny(v)
 
+				isArrayMapper := r.isArrayMapper(casted)
+
 				valueDest, found := dst[k]
 
-				if !found || reflect.ValueOf(valueDest).Kind() != reflect.Map {
+				if isArrayMapper {
+					descriptor, ok := casted[Each]
+					if ok {
+						dst[k] = r.populateMappedArray(r.mustMapStringAny(descriptor))
+					}
+				} else if !found || reflect.ValueOf(valueDest).Kind() != reflect.Map {
 					empty := map[string]any{}
 					dst[k] = empty
 
