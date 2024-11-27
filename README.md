@@ -198,6 +198,9 @@ Server can be run within Docker container. If using docker componse it's recomme
 utilize volume binding from local machine to docker container to a folder that is used for 
 mapping. That way you can externally change configurations and utilize file system listening.
 
+In order to prevent using `inotify` and read all config files on each request received set environment variable
+`SKIP_FS_EVENTS=true`
+
 ```yaml
 services:
   simulator:

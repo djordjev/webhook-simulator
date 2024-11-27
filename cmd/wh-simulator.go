@@ -41,8 +41,10 @@ func main() {
 
 	err := mapper.Refresh()
 
-	listener := updating.NewUpdater(mapper, cfg, mainCtx)
-	listener.Listen()
+	if !cfg.SkipFSEvents {
+		listener := updating.NewUpdater(mapper, cfg, mainCtx)
+		listener.Listen()
+	}
 
 	if err != nil {
 		log.Fatalf("unable to read files from mapping directory")
