@@ -6,11 +6,13 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
-	Port    int
-	Mapping string
+	Port         int
+	Mapping      string
+	SkipFSEvents bool
 }
 
 const DefaultMapping = "/mapping"
@@ -30,6 +32,7 @@ func ParseConfig() Config {
 	// Set to config
 	c.Port = getPort(port)
 	c.Mapping = getMapping(location)
+	c.SkipFSEvents = getUseFSEvents()
 
 	return c
 }
@@ -63,4 +66,9 @@ func getMapping(cliLocation *string) string {
 	}
 
 	return DefaultMapping
+}
+
+func getUseFSEvents() bool {
+	shouldSkip := os.Getenv("SKIP_FS_EVENTS")
+	return strings.ToLower(shouldSkip) == "true"
 }

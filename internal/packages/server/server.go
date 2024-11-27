@@ -27,6 +27,15 @@ func (s server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	if s.config.SkipFSEvents {
+		err := s.mapper.Refresh()
+		if err != nil {
+			log.Println("unable to read configuration")
+			writer.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
+
 	payload := make(map[string]any)
 
 	err := json.NewDecoder(request.Body).Decode(&payload)
