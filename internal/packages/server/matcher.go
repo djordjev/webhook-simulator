@@ -70,7 +70,7 @@ func (m *RequestMatcher) headersMatching() bool {
 }
 
 func isMatching(needToMatch map[string]any, object map[string]any) bool {
-	if needToMatch == nil {
+	if needToMatch == nil || len(needToMatch) == 0 {
 		return true
 	}
 
