@@ -103,6 +103,15 @@ func TestMatch(t *testing.T) {
 		},
 	}
 
+	var flowPostNoRequirements = mapping.Flow{
+		Request: &mapping.RequestDefinition{
+			Method:  http.MethodPost,
+			Path:    "/randomPath1",
+			Body:    map[string]any{},
+			Headers: map[string]string{"Content-Type": "application/json"},
+		},
+	}
+
 	var flowGet = mapping.Flow{
 		Request: &mapping.RequestDefinition{
 			Method:  http.MethodGet,
@@ -142,6 +151,13 @@ func TestMatch(t *testing.T) {
 			request: request,
 			body:    body,
 			flow:    flowPost,
+			isMatch: true,
+		},
+		{
+			name:    "matches payload with empty map",
+			request: request,
+			body:    body,
+			flow:    flowPostNoRequirements,
 			isMatch: true,
 		},
 		{
